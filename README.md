@@ -1,10 +1,126 @@
-<div align="center">ImmichSafeThe Ultimate Desktop Companion for Your Immich Server<p align="center"><img alt="Python Version" src="https://www.google.com/search?q=https://img.shields.io/badge/python-3.8%2B-blue.svg"><img alt="License" src="https://www.google.com/search?q=https://img.shields.io/badge/license-MIT-green.svg"><img alt="Platform" src="https://www.google.com/search?q=https://img.shields.io/badge/platform-Windows-blue.svg"></p></div>ImmichSafe is a user-friendly desktop application for Windows designed to simplify the management, backup, and restoration of your self-hosted Immich photo and video management server. It provides a graphical user interface for complex Docker commands, making Immich administration accessible to everyone.<p align="center"><img src="https://www.google.com/search?q=https://placehold.co/800x500/242526/E4E6EB%3Ftext%3DImmichSafe%2BScreenshot%2BHere" alt="ImmichSafe Application Screenshot"/><em>Suggestion: Replace the placeholder above with a real screenshot of the application.</em></p>Table of ContentsKey FeaturesRequirementsInstallation and UsageQuick Start GuideContributingLicenseKey FeaturesFull Immich Lifecycle Management: Install, update, start, stop, restart, and uninstall your Immich server with simple button clicks.One-Click Backups: Perform full backups of your entire Immich instance, or backup just your media library or database individually.Automated Backups: Schedule automatic backups to run daily, weekly, or monthly at a time of your choosing. A live countdown on the home page shows you when the next backup is planned.Safe Updates: Update your Immich instance with confidence. The "Safe Update" feature automatically backs up your database before updating and can roll back to the previous version if the update fails.Simple Restoration: Restore your media, database, or a full instance from a previous backup with a few clicks.Live Status Dashboard: See the real-time status of all your Immich Docker containers (server, microservices, machine learning, etc.) at a glance.System Tray Integration: The application runs conveniently in the system tray, minimizing to the background and providing notifications for key events.RequirementsBefore you begin, ensure you have the following installed and running on your Windows machine:Windows Operating System: Windows 10 or newer.Docker Desktop: The application interacts directly with Docker to manage the Immich containers. Download and install Docker Desktop here.Python: Python 3.8 or newer.Installation and UsageFollow these steps to get ImmichSafe running from the source code:1. Clone the RepositoryClone this repository to your local machine:git clone [https://github.com/your-username/ImmichSafe.git](https://github.com/your-username/ImmichSafe.git)
-cd ImmichSafe
-(Replace your-username with your actual GitHub username)2. Install DependenciesInstall the required Python packages using the requirements.txt file. It's recommended to do this within a virtual environment.# Optional: Create and activate a virtual environment
-python -m venv venv
-.\venv\Scripts\activate
+ImmichSafe
+==========
 
-# Install requirements
-pip install -r requirements.txt
-3. Run the ApplicationExecute the main.py script to launch the application.python main.py
-Quick Start GuideInitial Setup (Settings Tab)Navigate to the Settings tab.Set your Immich Installation Path. This is the folder where the docker-compose.yml file will be stored (e.g., C:\Immich).Set your Media (Upload) Folder. This is the parent directory where all your photos and videos will be stored (e.g., Y:\MyPhotos). The application will automatically create the necessary subfolders (upload, library, etc.) inside this directory.Install Immich (Manage Tab)Go to the Manage tab.Select the version of Immich you wish to install from the dropdown menu.Click the "Install" button and follow the prompts.Configure Backups (Backup Tab)Go to the Backup tab.Select a Backup Folder where you want to store your backups.To enable scheduled backups, check "Enable automatic backups" and configure your desired frequency and time.Click "Save Backup Settings".Run a Manual BackupOn the Backup tab, click "Backup All" to perform your first full backup. You can monitor the progress in the log window.ContributingContributions are welcome! If you have suggestions for improvements or find a bug, please feel free to open an issue or submit a pull request.LicenseThis project is licensed under the MIT License. See the LICENSE file for details.
+### The Ultimate Desktop Companion for Your Immich Server
+
+**ImmichSafe** is a user-friendly desktop application for Windows designed to simplify the management, backup, and restoration of your self-hosted [Immich](https://immich.app/) photo and video management server. It provides a graphical user interface for complex Docker commands, making Immich administration accessible to everyone.
+
+Disclaimer
+----------
+
+> **Note:** ImmichSafe is an independent, third-party tool created by the community. It is not officially affiliated with, endorsed by, or supported by the official Immich project.
+
+Table of Contents
+-----------------
+
+*   [Key Features](https://www.google.com/search?q=#key-features)
+    
+*   [Requirements](https://www.google.com/search?q=#requirements)
+    
+*   [Installation and Usage](https://www.google.com/search?q=#installation-and-usage)
+    
+*   [Quick Start Guide](https://www.google.com/search?q=#quick-start-guide)
+    
+*   [Contributing](https://www.google.com/search?q=#contributing)
+    
+*   [License](https://www.google.com/search?q=#license)
+    
+
+Key Features
+------------
+
+*   **Full Immich Lifecycle Management**: Install, update, start, stop, restart, and uninstall your Immich server with simple button clicks.
+    
+*   **One-Click Backups**: Perform full backups of your entire Immich instance, or backup just your media library or database individually.
+    
+*   **Automated Backups**: Schedule automatic backups to run daily, weekly, or monthly at a time of your choosing. A live countdown on the home page shows you when the next backup is planned.
+    
+*   **Safe Updates**: Update your Immich instance with confidence. The "Safe Update" feature automatically backs up your database before updating and can roll back to the previous version if the update fails.
+    
+*   **Simple Restoration**: Restore your media, database, or a full instance from a previous backup with a few clicks.
+    
+*   **Live Status Dashboard**: See the real-time status of all your Immich Docker containers (server, microservices, machine learning, etc.) at a glance.
+    
+*   **System Tray Integration**: The application runs conveniently in the system tray, minimizing to the background and providing notifications for key events.
+    
+
+Requirements
+------------
+
+Before you begin, ensure you have the following installed and running on your Windows machine:
+
+1.  **Windows Operating System**: Windows 10 or newer.
+    
+2.  **Docker Desktop**: The application interacts directly with Docker to manage the Immich containers. [Download and install Docker Desktop here](https://www.docker.com/products/docker-desktop/).
+    
+3.  **Python**: Python 3.8 or newer.
+    
+
+Installation and Usage
+----------------------
+
+Follow these steps to get ImmichSafe running from the source code:
+
+### 1\. Clone the Repository
+
+Clone this repository to your local machine:
+
+Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   git clone [https://github.com/your-username/ImmichSafe.git](https://github.com/your-username/ImmichSafe.git)  cd ImmichSafe   `
+
+_(Replace your-username with your actual GitHub username)_
+
+### 2\. Install Dependencies
+
+Install the required Python packages using the requirements.txt file. It is highly recommended to do this within a virtual environment.
+
+Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   # Optional: Create and activate a virtual environment  python -m venv venv  .\venv\Scripts\activate  # Install requirements  pip install -r requirements.txt   `
+
+### 3\. Run the Application
+
+Execute the main.py script to launch the application.
+
+Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   python main.py   `
+
+Quick Start Guide
+-----------------
+
+1.  **Initial Setup (Settings Tab)**
+    
+    *   Navigate to the **Settings** tab.
+        
+    *   Set your **Immich Installation Path**. This is the folder where the docker-compose.yml file will be stored (e.g., C:\\Immich).
+        
+    *   Set your **Media (Upload) Folder**. This is the parent directory where all your photos and videos will be stored (e.g., Y:\\MyPhotos). The application will automatically create the necessary subfolders (upload, library, etc.) inside this directory.
+        
+2.  **Install Immich (Manage Tab)**
+    
+    *   Go to the **Manage** tab.
+        
+    *   Select the version of Immich you wish to install from the dropdown menu.
+        
+    *   Click the **"Install"** button and follow the prompts.
+        
+3.  **Configure Backups (Backup Tab)**
+    
+    *   Go to the **Backup** tab.
+        
+    *   Select a **Backup Folder** where you want to store your backups.
+        
+    *   To enable scheduled backups, check **"Enable automatic backups"** and configure your desired frequency and time.
+        
+    *   Click **"Save Backup Settings"**.
+        
+4.  **Run a Manual Backup**
+    
+    *   On the **Backup** tab, click **"Backup All"** to perform your first full backup. You can monitor the progress in the log window.
+        
+
+Contributing
+------------
+
+Contributions are welcome! If you have suggestions for improvements or find a bug, please feel free to open an issue or submit a pull request.
+
+License
+-------
+
+This project is licensed under the MIT License. See the LICENSE file for details.
