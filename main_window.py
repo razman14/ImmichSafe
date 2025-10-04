@@ -10,17 +10,25 @@ from PySide6.QtWidgets import (
     QTabWidget, QPushButton, QLineEdit, QFileDialog, QProgressBar,
     QTextEdit, QLabel, QFormLayout, QSpinBox, QMessageBox, QComboBox,
     QSystemTrayIcon, QMenu, QGroupBox, QCheckBox, QStyle, QFrame,
-    QGridLayout, QListWidget, QListWidgetItem, QTimeEdit
+    QGridLayout, QListWidget, QListWidgetItem, QTimeEdit, QDialog
 )
 from PySide6.QtCore import QThread, Signal, QTimer, QTime, Qt
 from PySide6.QtGui import QIcon, QAction, QColor
 
-from config import APP_NAME, APP_VERSION, CONFIG_FILE, REG_KEY_PATH, IS_WINDOWS
+from config import (
+    APP_NAME, APP_VERSION, CONFIG_FILE, IS_WINDOWS, IS_MAC, IS_LINUX
+)
 from worker import Worker
 from theme import get_stylesheet, get_system_theme
 
+# Import platform-specific modules and variables
 if IS_WINDOWS:
     import winreg
+    from config import REG_KEY_PATH
+if IS_LINUX:
+    from config import AUTOSTART_DIR_LINUX
+if IS_MAC:
+    from config import LAUNCH_AGENTS_DIR_MAC
 
 class MainWindow(QMainWindow):
     backup_requested = Signal(str, str, str, str, int)
@@ -205,7 +213,6 @@ class MainWindow(QMainWindow):
         layout.addLayout(self.container_grid)
         layout.addSpacing(20)
 
-        # Countdown timer UI
         schedule_group = QGroupBox("Next Scheduled Backup")
         schedule_layout = QVBoxLayout(schedule_group)
         self.countdown_label = QLabel("Scheduler is disabled.")
@@ -688,8 +695,8 @@ class MainWindow(QMainWindow):
             
     def update_manage_tab_state(self):
         install_path = self.settings.get("immich_install_path")
-        is_installed = install_path and (Path(install_path) / "docker-compose.yml").exists()
-        is_running = self.worker._does_container_exist("immich_server")
+        is_installed = bool(install_path and (Path(install_path) / "docker-compose.yml").exists())
+        is_running = bool(self.worker._does_container_exist("immich_server"))
         
         self.manage_install_update_button.setText("Update" if is_installed else "Install")
         self.safe_update_checkbox.setVisible(is_installed)
@@ -697,19 +704,17 @@ class MainWindow(QMainWindow):
         is_busy = self.is_task_running
         self.manage_install_update_button.setEnabled(not is_busy)
         
-        # This is the user-suggested fix to make startup more robust
-        self.manage_start_button.setVisible(bool(is_installed and not is_running))
-        self.manage_stop_button.setVisible(bool(is_installed and is_running))
+        self.manage_start_button.setVisible(is_installed and not is_running)
+        self.manage_stop_button.setVisible(is_installed and is_running)
 
-        self.manage_start_button.setEnabled(bool(is_installed and not is_running and not is_busy))
-        self.manage_stop_button.setEnabled(bool(is_installed and is_running and not is_busy))
-        self.manage_restart_button.setEnabled(bool(is_installed and not is_busy))
-        self.open_immich_button.setEnabled(bool(is_installed and is_running and not is_busy))
-        self.reinstall_button.setEnabled(bool(is_installed and not is_busy))
-        self.uninstall_button.setEnabled(bool(is_installed and not is_busy))
-        self.manage_version_combo.setEnabled(bool(not is_busy))
-        self.manage_db_pass_edit.setEnabled(bool(not is_busy))
-
+        self.manage_start_button.setEnabled(is_installed and not is_running and not is_busy)
+        self.manage_stop_button.setEnabled(is_installed and is_running and not is_busy)
+        self.manage_restart_button.setEnabled(is_installed and not is_busy)
+        self.open_immich_button.setEnabled(is_installed and is_running and not is_busy)
+        self.reinstall_button.setEnabled(is_installed and not is_busy)
+        self.uninstall_button.setEnabled(is_installed and not is_busy)
+        self.manage_version_combo.setEnabled(not is_busy)
+        self.manage_db_pass_edit.setEnabled(not is_busy)
 
     def populate_versions_combo(self, versions):
         self.manage_version_combo.clear()
@@ -1069,13 +1074,11 @@ class MainWindow(QMainWindow):
         last_run_ts = self.settings.get("last_auto_backup_ts", 0)
         last_run_dt = datetime.fromtimestamp(last_run_ts)
 
-        # Stop if a backup has already run today.
         if last_run_dt.date() == now.date():
             return
 
         schedule_time = QTime.fromString(self.settings.get("schedule_time", "02:00"), "HH:mm")
 
-        # Stop if it's not yet time for the backup.
         if now.time() < schedule_time:
             return
 
@@ -1088,7 +1091,7 @@ class MainWindow(QMainWindow):
             backup_type = self.settings.get("schedule_backup_type", "Full Backup")
             self.log(f"SCHEDULER: Triggering automated '{backup_type}' backup.")
             self.tray_icon.showMessage(APP_NAME, f"Starting scheduled '{backup_type}' backup.", QSystemTrayIcon.Information, 3000)
-            self.tabs.setCurrentIndex(1) # Switch to backup tab to show progress
+            self.tabs.setCurrentIndex(1)
             
             if backup_type == "Media Only": self.start_media_backup()
             elif backup_type == "Database Only": self.start_db_backup()
@@ -1160,12 +1163,11 @@ class MainWindow(QMainWindow):
             try:
                 next_run = today_schedule.replace(day=target_day)
                 if now > next_run:
-                    # Move to next month
                     next_month = (now.month % 12) + 1
                     next_year = now.year + (1 if now.month == 12 else 0)
                     next_run = next_run.replace(year=next_year, month=next_month)
-            except ValueError: # Handle days not present in a month (e.g. 31st)
-                next_run = None # Simplification: don't show countdown for invalid day
+            except ValueError:
+                next_run = None
 
         return next_run
 
@@ -1238,7 +1240,6 @@ class MainWindow(QMainWindow):
         self.tray_icon.activated.connect(self.on_tray_icon_activated)
 
     def on_tray_icon_activated(self, reason):
-        # Show window on left-click
         if reason == QSystemTrayIcon.Trigger:
             self.show_and_raise()
 
@@ -1254,27 +1255,100 @@ class MainWindow(QMainWindow):
         QApplication.instance().quit()
 
     def set_startup(self, enable):
-        if not IS_WINDOWS:
-            self.log("Startup configuration is only supported on Windows.")
-            return
+        """Configures the application to run on system startup."""
+        if IS_WINDOWS:
+            self._set_startup_windows(enable)
+        elif IS_LINUX:
+            self._set_startup_linux(enable)
+        elif IS_MAC:
+            self._set_startup_mac(enable)
+
+    def _set_startup_windows(self, enable):
+        """Handles startup configuration for Windows via the registry."""
         try:
-            key_path = REG_KEY_PATH
-            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path)
+            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, REG_KEY_PATH, 0, winreg.KEY_SET_VALUE)
             if enable:
                 command = f'"{sys.executable}" "{os.path.abspath(sys.argv[0])}"'
                 winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, command)
                 self.log("Set to run on startup.")
             else:
-                winreg.DeleteValue(key, APP_NAME)
-                self.log("Removed from startup.")
+                try:
+                    winreg.DeleteValue(key, APP_NAME)
+                    self.log("Removed from startup.")
+                except FileNotFoundError:
+                    self.log("Not set to run on startup (value not found).")
             winreg.CloseKey(key)
-        except FileNotFoundError:
-             if not enable:
-                 self.log("Not set to run on startup (key not found).")
-             else:
-                 self.log_error("Could not create startup registry key.")
         except Exception as e:
-            self.log_error(f"Error setting startup: {e}")
+            self.log_error(f"Error setting Windows startup: {e}")
+
+    def _set_startup_linux(self, enable):
+        """Handles startup configuration for Linux by creating a .desktop file."""
+        autostart_dir = AUTOSTART_DIR_LINUX
+        desktop_file = autostart_dir / f"{APP_NAME.lower()}.desktop"
+        
+        try:
+            if enable:
+                autostart_dir.mkdir(parents=True, exist_ok=True)
+                
+                python_executable = sys.executable
+                script_path = os.path.abspath(sys.argv[0])
+                
+                desktop_entry = f"""[Desktop Entry]
+Type=Application
+Name={APP_NAME}
+Exec={python_executable} {script_path}
+Comment=Manage your Immich server
+Terminal=false
+"""
+                desktop_file.write_text(desktop_entry)
+                self.log("Set to run on startup.")
+            else:
+                if desktop_file.exists():
+                    desktop_file.unlink()
+                    self.log("Removed from startup.")
+                else:
+                    self.log("Not set to run on startup (desktop file not found).")
+        except Exception as e:
+            self.log_error(f"Error setting Linux startup: {e}")
+            
+    def _set_startup_mac(self, enable):
+        """Handles startup configuration for macOS by creating a .plist file."""
+        launch_dir = LAUNCH_AGENTS_DIR_MAC
+        plist_file = launch_dir / f"com.{APP_NAME.lower()}.app.plist"
+
+        try:
+            if enable:
+                launch_dir.mkdir(parents=True, exist_ok=True)
+                python_executable = sys.executable
+                script_path = os.path.abspath(sys.argv[0])
+                
+                plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.{APP_NAME.lower()}.app</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{python_executable}</string>
+        <string>{script_path}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>
+"""
+                plist_file.write_text(plist_content)
+                self.log("Set to run on startup.")
+            else:
+                if plist_file.exists():
+                    plist_file.unlink()
+                    self.log("Removed from startup.")
+                else:
+                    self.log("Not set to run on startup (plist file not found).")
+        except Exception as e:
+            self.log_error(f"Error setting macOS startup: {e}")
+
 
     def closeEvent(self, event):
         if self.is_task_running:
@@ -1283,7 +1357,6 @@ class MainWindow(QMainWindow):
                 event.ignore()
                 return
         
-        # On close, hide to system tray instead of quitting
         event.ignore()
         self.hide()
         self.tray_icon.showMessage(
