@@ -2,13 +2,19 @@
 
 ### The Ultimate Desktop Companion for Your Immich Server
 
+# 
+
 **ImmichSafe** is a user-friendly, cross-platform desktop application for Windows, macOS, and Linux, designed to simplify the management, backup, and restoration of your self-hosted [Immich](https://immich.app/ "null") photo and video management server. It provides a graphical user interface for complex Docker commands, making Immich administration accessible to everyone.
 
 > **Note:** ImmichSafe is an independent, third-party tool created by the community. It is not officially affiliated with, endorsed by, or supported by the official Immich project.
 
 ## Table of Contents
 
+# 
+
 -   [Key Features](https://www.google.com/search?q=%23key-features "null")
+    
+-   [Screenshots](https://www.google.com/search?q=%23screenshots "null")
     
 -   [Requirements](https://www.google.com/search?q=%23requirements "null")
     
@@ -22,6 +28,8 @@
     
 
 ## Key Features
+
+# 
 
 -   **Cross-Platform**: Works natively on Windows, macOS, and Linux.
     
@@ -40,7 +48,33 @@
 -   **System Tray Integration**: The application runs conveniently in the system tray, minimizing to the background and providing notifications for key events.
     
 
+## Screenshots
+
+# 
+
+**Home Tab:** Monitor the real-time status of your Immich containers and see the countdown to your next scheduled backup.
+
+![Home Tab](https://github.com/epichfallen/ImmichSafe/blob/main/assets/screenshots/home-tab.png)
+
+**Backup Tab:** Easily configure backup schedules, run manual backups, and view your recent backup history.
+
+![Backup Tab](https://github.com/epichfallen/ImmichSafe/blob/main/assets/screenshots/backup-tab.png)
+
+**Restore Tab:** Select from a list of previous backups to restore your media, database, or a full instance.
+
+![Restore Tab](https://github.com/epichfallen/ImmichSafe/blob/main/assets/screenshots/restore-tab.png)
+
+**Manage Tab:** Install, update, and control your Immich server with simple actions.
+
+![Manage Tab](https://github.com/epichfallen/ImmichSafe/blob/main/assets/screenshots/manage-tab.png)
+
+**Settings Tab:** Configure all core application paths and behaviors in one place.
+
+![Settings Tab](https://github.com/epichfallen/ImmichSafe/blob/main/assets/screenshots/settings-tab.png)
+
 ## Requirements
+
+# 
 
 Before you begin, ensure you have the following installed on your machine:
 
@@ -55,9 +89,13 @@ Before you begin, ensure you have the following installed on your machine:
 
 ## Installation and Usage
 
+# 
+
 Follow these steps to get ImmichSafe running from the source code:
 
 ### 1\. Clone the Repository
+
+# 
 
 Clone this repository to your local machine:
 
@@ -68,6 +106,8 @@ Clone this repository to your local machine:
 _(Replace `your-username` with your actual GitHub username)_
 
 ### 2\. Install Dependencies
+
+# 
 
 Install the required Python packages using the `requirements.txt` file. It is highly recommended to do this within a virtual environment.
 
@@ -81,12 +121,16 @@ Install the required Python packages using the `requirements.txt` file. It is hi
 
 ### 3\. Run the Application
 
+# 
+
 Execute the `main.py` script to launch the application.
 
     python3 main.py
     
 
 ## Quick Start Guide
+
+# 
 
 1.  **Initial Setup (Settings Tab)**
     
@@ -117,8 +161,12 @@ Execute the `main.py` script to launch the application.
 
 ## Contributing
 
+# 
+
 Contributions are welcome! If you have suggestions for improvements or find a bug, please feel free to open an issue or submit a pull request.
 
 ## License
+
+# 
 
 This project is licensed under the MIT License. See the `LICENSE` file for details.
