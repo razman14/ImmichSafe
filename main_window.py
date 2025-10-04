@@ -10,7 +10,8 @@ from PySide6.QtWidgets import (
     QTabWidget, QPushButton, QLineEdit, QFileDialog, QProgressBar,
     QTextEdit, QLabel, QFormLayout, QSpinBox, QMessageBox, QComboBox,
     QSystemTrayIcon, QMenu, QGroupBox, QCheckBox, QStyle, QFrame,
-    QGridLayout, QListWidget, QListWidgetItem, QTimeEdit, QDialog
+    QGridLayout, QListWidget, QListWidgetItem, QTimeEdit, QDialog,
+    QSizePolicy
 )
 from PySide6.QtCore import QThread, Signal, QTimer, QTime, Qt
 from PySide6.QtGui import QIcon, QAction, QColor
@@ -31,20 +32,21 @@ if IS_MAC:
     from config import LAUNCH_AGENTS_DIR_MAC
 
 class MainWindow(QMainWindow):
-    backup_requested = Signal(str, str, str, str, int)
-    db_backup_requested = Signal(str, str, str, int)
-    media_backup_requested = Signal(str, str, int)
-    media_restore_requested = Signal(str, str)
-    db_restore_requested = Signal(str, str, str)
-    full_restore_requested = Signal(str, str, str, str, str)
-    install_requested = Signal(str, str, str, str, bool)
-    update_requested = Signal(str, str, bool)
-    safe_update_requested = Signal(str, str, str, str, str, bool)
-    action_requested = Signal(str, str)
-    reinstall_requested = Signal(str)
-    uninstall_requested = Signal(str)
+    # Signals now pass a dictionary of settings for context
+    backup_requested = Signal(dict)
+    db_backup_requested = Signal(dict)
+    media_backup_requested = Signal(dict)
+    media_restore_requested = Signal(dict)
+    db_restore_requested = Signal(dict)
+    full_restore_requested = Signal(dict)
+    install_requested = Signal(dict)
+    update_requested = Signal(dict)
+    safe_update_requested = Signal(dict)
+    action_requested = Signal(dict)
+    reinstall_requested = Signal(dict)
+    uninstall_requested = Signal(dict)
     version_fetch_requested = Signal()
-    docker_status_requested = Signal(str)
+    docker_status_requested = Signal(dict)
     release_notes_requested = Signal(str)
     ready_to_show = Signal()
 
@@ -67,8 +69,8 @@ class MainWindow(QMainWindow):
         self.backup_requested.connect(self.worker.run_backup)
         self.db_backup_requested.connect(self.worker.run_db_backup)
         self.media_backup_requested.connect(self.worker.run_media_backup)
-        self.media_restore_requested.connect(lambda m, t: self.worker.run_media_restore(m, t, True))
-        self.db_restore_requested.connect(lambda f, c, u: self.worker.run_db_restore(f, c, u, True))
+        self.media_restore_requested.connect(self.worker.run_media_restore)
+        self.db_restore_requested.connect(self.worker.run_db_restore)
         self.full_restore_requested.connect(self.worker.run_full_restore)
         self.install_requested.connect(self.worker.run_immich_install)
         self.update_requested.connect(self.worker.run_immich_update)
@@ -100,17 +102,30 @@ class MainWindow(QMainWindow):
 
     def load_settings(self):
         try:
-            with open(CONFIG_FILE, 'r') as f: return json.load(f)
+            with open(CONFIG_FILE, 'r') as f: 
+                settings = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
-            return {
-                "source_dir": "", "backup_dir": "", "retention_days": 7, 
-                "container_name": "immich_postgres", "db_user": "postgres", 
-                "start_with_windows": False, "start_minimized": False, "theme": "system",
-                "schedule_enabled": False, "schedule_frequency": "Daily", 
-                "schedule_time": "02:00", "schedule_day": "Monday", 
-                "schedule_day_of_month": 1, "last_auto_backup_ts": 0,
-                "immich_install_path": "", "schedule_backup_type": "Full Backup"
-            }
+            settings = {}
+        
+        # Define default values for all settings
+        defaults = {
+            "source_dir": "", "backup_dir": "", "retention_days": 7, 
+            "container_name": "immich_postgres", "db_user": "postgres", 
+            "start_with_windows": False, "start_minimized": False, "theme": "system",
+            "schedule_enabled": False, "schedule_frequency": "Daily", 
+            "schedule_time": "02:00", "schedule_day": "Monday", 
+            "schedule_day_of_month": 1, "last_auto_backup_ts": 0,
+            "immich_install_path": "", "schedule_backup_type": "Full Backup",
+            # SSH settings
+            "ssh_enabled": False, "ssh_host": "", "ssh_port": 22,
+            "ssh_user": "", "ssh_pass": "", "ssh_key_path": ""
+        }
+        
+        # Ensure all keys from defaults exist in settings
+        for key, value in defaults.items():
+            settings.setdefault(key, value)
+            
+        return settings
     
     def save_settings(self):
         with open(CONFIG_FILE, 'w') as f: json.dump(self.settings, f, indent=4)
@@ -237,7 +252,7 @@ class MainWindow(QMainWindow):
         
         paths_group = QGroupBox("Backup Destination")
         paths_layout = QFormLayout(paths_group)
-        self.backup_dir_edit, backup_btn = self._create_path_selector("Select Backup Destination", self.settings.get("backup_dir", ""))
+        self.backup_dir_edit, backup_btn = self._create_path_selector("Select Backup Destination", self.settings.get("backup_dir", ""), is_folder=True)
         paths_layout.addRow("Backup Folder:", self._create_hbox(self.backup_dir_edit, backup_btn))
         left_column.addWidget(paths_group)
 
@@ -323,7 +338,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(tab)
         layout.setContentsMargins(30, 20, 30, 20)
         restore_source_layout = QFormLayout()
-        self.restore_backup_dir_edit, restore_browse_btn = self._create_path_selector("Select Backup Folder", self.settings.get("backup_dir", ""))
+        self.restore_backup_dir_edit, restore_browse_btn = self._create_path_selector("Select Backup Folder", self.settings.get("backup_dir", ""), is_folder=True)
         restore_source_layout.addRow("Backup Folder:", self._create_hbox(self.restore_backup_dir_edit, restore_browse_btn))
         restore_browse_btn.clicked.connect(self.select_restore_source_and_refresh)
         self.restore_selection_combo = QComboBox()
@@ -439,19 +454,19 @@ class MainWindow(QMainWindow):
         form_layout = QFormLayout()
         form_layout.setSpacing(15)
         
-        def add_header(text):
+        def add_header(text, top_margin=10):
             header = QLabel(text)
             header.setObjectName("header")
             separator = QFrame()
             separator.setFrameShape(QFrame.HLine)
             separator.setObjectName("separator")
             vbox = QVBoxLayout()
-            vbox.setContentsMargins(0,10,0,5)
+            vbox.setContentsMargins(0,top_margin,0,5)
             vbox.addWidget(header)
             vbox.addWidget(separator)
             form_layout.addRow(vbox)
         
-        add_header("Appearance")
+        add_header("Appearance", top_margin=0)
         self.theme_combo = QComboBox()
         self.theme_combo.addItems(["System Default", "Light", "Dark"])
         form_layout.addRow("Theme:", self.theme_combo)
@@ -462,17 +477,42 @@ class MainWindow(QMainWindow):
         form_layout.addRow(self.setting_start_with_windows)
         form_layout.addRow(self.setting_start_minimized)
 
-        add_header("Core Paths")
-        self.setting_install_path_edit, install_path_btn = self._create_path_selector("Select Immich Installation Folder", self.settings.get("immich_install_path", ""))
+        add_header("Core Paths (Local)")
+        self.setting_install_path_edit, install_path_btn = self._create_path_selector("Select Immich Installation Folder", self.settings.get("immich_install_path", ""), is_folder=True)
         form_layout.addRow("Immich Installation Path:", self._create_hbox(self.setting_install_path_edit, install_path_btn))
-        self.setting_source_dir_edit, source_btn = self._create_path_selector("Select Immich Media Folder", self.settings.get("source_dir", ""))
+        self.setting_source_dir_edit, source_btn = self._create_path_selector("Select Immich Media Folder", self.settings.get("source_dir", ""), is_folder=True)
         form_layout.addRow("Media (Upload) Folder:", self._create_hbox(self.setting_source_dir_edit, source_btn))
 
+        # --- SSH Settings ---
+        add_header("Remote Management (SSH)")
+        self.ssh_enabled_check = QCheckBox("Enable Remote Management")
+        form_layout.addRow(self.ssh_enabled_check)
+        
+        self.ssh_host_edit = QLineEdit()
+        self.ssh_port_spin = QSpinBox()
+        self.ssh_port_spin.setRange(1, 65535)
+        self.ssh_port_spin.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        form_layout.addRow("Server IP Address:", self._create_hbox(self.ssh_host_edit, QLabel("Port:"), self.ssh_port_spin))
+
+        self.ssh_user_edit = QLineEdit()
+        form_layout.addRow("SSH Username:", self.ssh_user_edit)
+        
+        self.ssh_pass_edit = QLineEdit()
+        self.ssh_pass_edit.setEchoMode(QLineEdit.Password)
+        form_layout.addRow("SSH Password:", self.ssh_pass_edit)
+        
+        self.ssh_key_path_edit, ssh_key_btn = self._create_path_selector("Select SSH Private Key", self.settings.get("ssh_key_path", ""), is_folder=False)
+        form_layout.addRow("SSH Private Key Path:", self._create_hbox(self.ssh_key_path_edit, ssh_key_btn))
+        
+        self.ssh_widgets = [self.ssh_host_edit, self.ssh_port_spin, self.ssh_user_edit, self.ssh_pass_edit, self.ssh_key_path_edit, ssh_key_btn]
+        self.ssh_enabled_check.toggled.connect(self._toggle_ssh_widgets)
+        
         self.save_app_settings_btn = QPushButton("Save Settings")
         self.save_app_settings_btn.clicked.connect(self.collect_and_save_settings)
         
         self._connect_app_setting_signals()
         self.load_app_settings_to_ui()
+        self._toggle_ssh_widgets(self.ssh_enabled_check.isChecked())
 
         layout.addLayout(form_layout)
         layout.addStretch()
@@ -480,16 +520,24 @@ class MainWindow(QMainWindow):
         
         return tab
 
-    def _create_path_selector(self, title, initial_path):
+    def _toggle_ssh_widgets(self, enabled):
+        for widget in self.ssh_widgets:
+            widget.setEnabled(enabled)
+
+    def _create_path_selector(self, title, initial_path, is_folder=True):
         edit = QLineEdit(initial_path)
         button = QPushButton("Browse...")
-        button.clicked.connect(lambda: self.select_directory(edit, title))
+        if is_folder:
+            button.clicked.connect(lambda: self.select_directory(edit, title))
+        else:
+            button.clicked.connect(lambda: self.select_file(edit, title))
         return edit, button
 
     def _create_hbox(self, *widgets):
         hbox = QHBoxLayout()
         for widget in widgets:
-            hbox.addWidget(widget)
+            if isinstance(widget, QWidget):
+                hbox.addWidget(widget)
         return hbox
 
     def _create_progress_log_widgets(self):
@@ -563,34 +611,45 @@ class MainWindow(QMainWindow):
         directory = QFileDialog.getExistingDirectory(self, title, line_edit.text())
         if directory: line_edit.setText(directory)
 
+    def select_file(self, line_edit, title):
+        file, _ = QFileDialog.getOpenFileName(self, title, line_edit.text())
+        if file: line_edit.setText(file)
+
+    def _get_current_settings_payload(self):
+        """Gathers all current settings into a dictionary to be sent to the worker."""
+        payload = self.settings.copy()
+        payload['backup_dir'] = self.backup_dir_edit.text()
+        return payload
+
     def start_full_backup(self):
-        source_dir = self.settings.get("source_dir")
-        backup_dir = self.backup_dir_edit.text()
-        if not all([source_dir, backup_dir, Path(source_dir).exists(), Path(backup_dir).exists()]):
-            self.show_error("Invalid Paths", "Please select valid source and backup directories in Settings.")
-            return
+        settings = self._get_current_settings_payload()
+        if not settings.get('ssh_enabled'):
+             if not all([settings['source_dir'], settings['backup_dir'], Path(settings['source_dir']).exists(), Path(settings['backup_dir']).exists()]):
+                self.show_error("Invalid Paths", "Please select valid source and backup directories in Settings.")
+                return
         self.collect_and_save_settings()
         self.set_task_running(True, "backup")
-        self.backup_requested.emit(source_dir, backup_dir, self.settings['container_name'], self.settings['db_user'], self.settings['retention_days'])
+        self.backup_requested.emit(settings)
 
     def start_media_backup(self):
-        source_dir = self.settings.get("source_dir")
-        backup_dir = self.backup_dir_edit.text()
-        if not all([source_dir, backup_dir, Path(source_dir).exists(), Path(backup_dir).exists()]):
-            self.show_error("Invalid Paths", "Please select valid source and backup directories in Settings.")
-            return
+        settings = self._get_current_settings_payload()
+        if not settings.get('ssh_enabled'):
+            if not all([settings['source_dir'], settings['backup_dir'], Path(settings['source_dir']).exists(), Path(settings['backup_dir']).exists()]):
+                self.show_error("Invalid Paths", "Please select valid source and backup directories in Settings.")
+                return
         self.collect_and_save_settings()
         self.set_task_running(True, "backup")
-        self.media_backup_requested.emit(source_dir, backup_dir, self.settings['retention_days'])
+        self.media_backup_requested.emit(settings)
 
     def start_db_backup(self):
-        backup_dir = self.backup_dir_edit.text()
-        if not backup_dir or not Path(backup_dir).exists():
-            self.show_error("Invalid Path", "Please select a valid backup directory.")
-            return
+        settings = self._get_current_settings_payload()
+        if not settings.get('ssh_enabled'):
+            if not settings['backup_dir'] or not Path(settings['backup_dir']).exists():
+                self.show_error("Invalid Path", "Please select a valid backup directory.")
+                return
         self.collect_and_save_settings()
         self.set_task_running(True, "backup")
-        self.db_backup_requested.emit(backup_dir, self.settings['container_name'], self.settings['db_user'], self.settings['retention_days'])
+        self.db_backup_requested.emit(settings)
 
     def select_restore_source_and_refresh(self):
         self.select_directory(self.restore_backup_dir_edit, "Select Backup Folder")
@@ -600,9 +659,15 @@ class MainWindow(QMainWindow):
         self.restore_selection_combo.clear()
         self.restore_selection_combo.addItem("Select a backup...")
         backup_root = self.restore_backup_dir_edit.text()
-        if not backup_root or not Path(backup_root).exists():
-            return
+        if not backup_root: return
         
+        # This part will only work for local backups. Remote backup listing is not yet implemented.
+        if self.settings.get("ssh_enabled", False):
+            self.restore_selection_combo.addItem("Restore from remote not supported yet")
+            return
+
+        if not Path(backup_root).exists(): return
+
         backups = sorted(
             [d for d in Path(backup_root).glob("ImmichBackup_*") if d.is_dir()],
             key=os.path.getmtime, reverse=True
@@ -655,7 +720,11 @@ class MainWindow(QMainWindow):
 
     def start_full_restore(self):
         backup_media_dir, backup_sql_file = self._get_selected_restore_paths()
-        target_media_dir = self.settings.get("source_dir")
+        
+        settings = self._get_current_settings_payload()
+        settings['backup_media_dir'] = str(backup_media_dir)
+        settings['backup_sql_file'] = backup_sql_file
+        target_media_dir = settings.get("source_dir")
 
         if not all([backup_media_dir, backup_sql_file, target_media_dir]):
             self.show_error("Error", "Could not find all necessary files (media, database) for a full restore, or target media directory is not set in settings.")
@@ -668,11 +737,15 @@ class MainWindow(QMainWindow):
 
         if reply == QMessageBox.Yes:
             self.set_task_running(True, "restore")
-            self.full_restore_requested.emit(str(backup_media_dir), target_media_dir, backup_sql_file, self.settings['container_name'], self.settings['db_user'])
+            self.full_restore_requested.emit(settings)
 
     def start_media_restore(self):
         backup_media_dir, _ = self._get_selected_restore_paths()
-        target_media_dir = self.settings.get("source_dir")
+        
+        settings = self._get_current_settings_payload()
+        settings['backup_media_dir'] = str(backup_media_dir)
+        target_media_dir = settings.get("source_dir")
+
         if not backup_media_dir or not target_media_dir:
             self.show_error("Error", "Backup media path or target media directory is not valid.")
             return
@@ -680,10 +753,14 @@ class MainWindow(QMainWindow):
         reply = QMessageBox.question(self, "Confirm Media Restore", "This will replace the contents of your current media directory. Continue?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes:
             self.set_task_running(True, "restore")
-            self.media_restore_requested.emit(str(backup_media_dir), target_media_dir)
+            self.media_restore_requested.emit(settings)
 
     def start_db_restore(self):
         _, backup_sql_file = self._get_selected_restore_paths()
+
+        settings = self._get_current_settings_payload()
+        settings['backup_sql_file'] = backup_sql_file
+
         if not backup_sql_file:
             self.show_error("Error", "No SQL file found in the selected backup.")
             return
@@ -691,13 +768,15 @@ class MainWindow(QMainWindow):
         reply = QMessageBox.question(self, "Confirm Database Restore", "This will overwrite your current Immich database. Continue?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes:
             self.set_task_running(True, "restore")
-            self.db_restore_requested.emit(backup_sql_file, self.settings['container_name'], self.settings['db_user'])
+            self.db_restore_requested.emit(settings)
             
     def update_manage_tab_state(self):
         install_path = self.settings.get("immich_install_path")
-        is_installed = bool(install_path and (Path(install_path) / "docker-compose.yml").exists())
-        is_running = bool(self.worker._does_container_exist("immich_server"))
+        # In remote mode, we can't easily check if docker-compose.yml exists. Assume installed if path is set.
+        is_installed = bool(install_path) if self.settings.get('ssh_enabled') else bool(install_path and (Path(install_path) / "docker-compose.yml").exists())
         
+        is_running = self.worker.is_immich_server_running if hasattr(self.worker, 'is_immich_server_running') else False
+
         self.manage_install_update_button.setText("Update" if is_installed else "Install")
         self.safe_update_checkbox.setVisible(is_installed)
         
@@ -730,18 +809,21 @@ class MainWindow(QMainWindow):
             self.manage_version_combo.addItem("Could not fetch versions")
 
     def update_version_button_text(self, text):
-        is_installed = self.settings.get("immich_install_path") and (Path(self.settings.get("immich_install_path")) / "docker-compose.yml").exists()
+        install_path = self.settings.get("immich_install_path")
+        is_installed = bool(install_path) if self.settings.get('ssh_enabled') else bool(install_path and (Path(install_path) / "docker-compose.yml").exists())
+
         if not is_installed:
             self.manage_install_update_button.setText(f"Install {text}")
         else:
             self.manage_install_update_button.setText(f"Update to {text}")
 
     def open_immich_web(self):
-        webbrowser.open("http://localhost:2283")
+        host = self.settings.get("ssh_host", "localhost") if self.settings.get("ssh_enabled") else "localhost"
+        webbrowser.open(f"http://{host}:2283")
 
     def start_install_or_update(self):
         install_path = self.settings.get("immich_install_path")
-        is_installed = install_path and (Path(install_path) / "docker-compose.yml").exists()
+        is_installed = bool(install_path) if self.settings.get('ssh_enabled') else bool(install_path and (Path(install_path) / "docker-compose.yml").exists())
         
         current_text = self.manage_version_combo.currentText()
         if "Could not" in current_text:
@@ -750,6 +832,10 @@ class MainWindow(QMainWindow):
             
         is_latest = "(Latest)" in current_text
         version = current_text.replace(" (Latest)", "").strip()
+
+        settings_payload = self._get_current_settings_payload()
+        settings_payload['version'] = version
+        settings_payload['is_latest'] = is_latest
 
         if is_installed:
             if self.current_immich_version == "Unknown":
@@ -767,62 +853,74 @@ class MainWindow(QMainWindow):
                 self.set_task_running(True, "manage")
                 self.manage_log_console.clear()
                 
+                settings_payload['current_version'] = self.current_immich_version
+
                 if self.safe_update_checkbox.isChecked():
-                    self.safe_update_requested.emit(install_path, self.current_immich_version, version, self.settings['container_name'], self.settings['db_user'], is_latest)
+                    self.safe_update_requested.emit(settings_payload)
                 else:
-                    self.update_requested.emit(install_path, version, is_latest)
+                    self.update_requested.emit(settings_payload)
 
         else: 
-            install_path_to_use = self.settings.get("immich_install_path")
-            proceed_with_install = False
+            if not settings_payload.get('ssh_enabled', False):
+                install_path_to_use = self.settings.get("immich_install_path")
+                proceed_with_install = False
 
-            if install_path_to_use and Path(install_path_to_use).exists():
-                reply = QMessageBox.question(self, "Confirm Installation Path",
-                                             f"An installation path is already set in your settings:\n\n<b>{install_path_to_use}</b>\n\nDo you want to install Immich in this directory?",
-                                             QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
-                if reply == QMessageBox.Yes:
-                    proceed_with_install = True
-                else:
-                    new_path = QFileDialog.getExistingDirectory(self, "Select a Different Folder to Install Immich", str(Path.home()))
-                    if new_path:
-                        install_path_to_use = new_path
-                        proceed_with_install = True
-            else:
-                install_path_to_use = QFileDialog.getExistingDirectory(self, "Select Folder to Install Immich", str(Path.home()))
-                if install_path_to_use:
-                    proceed_with_install = True
-
-            if proceed_with_install:
-                media_path_to_use = self.settings.get("source_dir")
-                proceed_with_media = False
-                upload_path = ""
-
-                if media_path_to_use and Path(media_path_to_use).exists():
-                    reply = QMessageBox.question(self, "Confirm Media Path",
-                                                 f"A media path is already set in your settings:\n\n<b>{media_path_to_use}</b>\n\nDo you want to use this for your media uploads?",
+                if install_path_to_use and Path(install_path_to_use).exists():
+                    reply = QMessageBox.question(self, "Confirm Installation Path",
+                                                 f"An installation path is already set in your settings:\n\n<b>{install_path_to_use}</b>\n\nDo you want to install Immich in this directory?",
                                                  QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
                     if reply == QMessageBox.Yes:
-                        upload_path = media_path_to_use
-                        proceed_with_media = True
+                        proceed_with_install = True
                     else:
-                        new_media_path = QFileDialog.getExistingDirectory(self, "Select a Different Folder for Media (Uploads)", str(Path.home()))
-                        if new_media_path:
-                            upload_path = new_media_path
-                            proceed_with_media = True
+                        new_path = QFileDialog.getExistingDirectory(self, "Select a Different Folder to Install Immich", str(Path.home()))
+                        if new_path:
+                            install_path_to_use = new_path
+                            proceed_with_install = True
                 else:
-                    upload_path = QFileDialog.getExistingDirectory(self, "Select Folder for Media (Uploads)", install_path_to_use)
-                    if upload_path:
-                        proceed_with_media = True
+                    install_path_to_use = QFileDialog.getExistingDirectory(self, "Select Folder to Install Immich", str(Path.home()))
+                    if install_path_to_use:
+                        proceed_with_install = True
 
-                if proceed_with_media:
-                    self.setting_install_path_edit.setText(install_path_to_use)
-                    self.setting_source_dir_edit.setText(upload_path)
-                    self.collect_and_save_settings()
+                if proceed_with_install:
+                    media_path_to_use = self.settings.get("source_dir")
+                    proceed_with_media = False
+                    upload_path = ""
 
-                    db_pass = self.manage_db_pass_edit.text() or "postgres"
-                    self.set_task_running(True, "manage")
-                    self.manage_log_console.clear()
-                    self.install_requested.emit(install_path_to_use, version, db_pass, upload_path, is_latest)
+                    if media_path_to_use and Path(media_path_to_use).exists():
+                        reply = QMessageBox.question(self, "Confirm Media Path",
+                                                     f"A media path is already set in your settings:\n\n<b>{media_path_to_use}</b>\n\nDo you want to use this for your media uploads?",
+                                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.Yes)
+                        if reply == QMessageBox.Yes:
+                            upload_path = media_path_to_use
+                            proceed_with_media = True
+                        else:
+                            new_media_path = QFileDialog.getExistingDirectory(self, "Select a Different Folder for Media (Uploads)", str(Path.home()))
+                            if new_media_path:
+                                upload_path = new_media_path
+                                proceed_with_media = True
+                    else:
+                        upload_path = QFileDialog.getExistingDirectory(self, "Select Folder for Media (Uploads)", install_path_to_use)
+                        if upload_path:
+                            proceed_with_media = True
+
+                    if proceed_with_media:
+                        self.setting_install_path_edit.setText(install_path_to_use)
+                        self.setting_source_dir_edit.setText(upload_path)
+                        self.collect_and_save_settings()
+
+                        settings_payload['immich_install_path'] = install_path_to_use
+                        settings_payload['source_dir'] = upload_path
+                    else:
+                        return # User cancelled media selection
+                else:
+                    return # User cancelled install selection
+            
+            # This part runs for both local and remote installs
+            settings_payload['db_pass'] = self.manage_db_pass_edit.text() or "postgres"
+            self.set_task_running(True, "manage")
+            self.manage_log_console.clear()
+            self.install_requested.emit(settings_payload)
+
 
     def request_release_notes(self):
         current_text = self.manage_version_combo.currentText()
@@ -855,13 +953,13 @@ class MainWindow(QMainWindow):
         dialog.exec()
 
     def start_manage_action(self, action):
-        install_path = self.settings.get("immich_install_path")
+        settings = self._get_current_settings_payload()
+        settings['action'] = action
         self.set_task_running(True, "manage")
         self.manage_log_console.clear()
-        self.action_requested.emit(install_path, action)
+        self.action_requested.emit(settings)
 
     def start_reinstall(self):
-        install_path = self.settings.get("immich_install_path")
         reply = QMessageBox.warning(self, "Confirm Re-install",
             "<b>This will PERMANENTLY DELETE your Immich database and settings.</b><br>"
             "Your media files (photos/videos) will NOT be deleted.<br><br>"
@@ -871,13 +969,14 @@ class MainWindow(QMainWindow):
         if reply == QMessageBox.Yes:
             self.set_task_running(True, "manage")
             self.manage_log_console.clear()
-            self.reinstall_requested.emit(install_path)
+            self.reinstall_requested.emit(self._get_current_settings_payload())
 
     def start_uninstall(self):
         install_path = self.settings.get("immich_install_path")
-        if not install_path or not Path(install_path).exists():
-            self.show_error("Error", "Immich installation path is not set or does not exist.\n\nPlease set it in the Settings tab.")
-            return
+        if not self.settings.get('ssh_enabled', False):
+            if not install_path or not Path(install_path).exists():
+                self.show_error("Error", "Immich installation path is not set or does not exist.\n\nPlease set it in the Settings tab.")
+                return
 
         reply = QMessageBox.question(self, "Confirm Uninstall",
                                      "<h3>This will permanently remove the Immich application.</h3>"
@@ -896,7 +995,7 @@ class MainWindow(QMainWindow):
             self.set_task_running(True, "manage")
             self.manage_log_console.clear()
             self.log("Starting full uninstall (media files will be kept)...")
-            self.uninstall_requested.emit(install_path)
+            self.uninstall_requested.emit(self._get_current_settings_payload())
 
     def load_app_settings_to_ui(self):
         self._disconnect_app_setting_signals()
@@ -905,6 +1004,13 @@ class MainWindow(QMainWindow):
         self.setting_install_path_edit.setText(self.settings.get("immich_install_path", ""))
         self.setting_source_dir_edit.setText(self.settings.get("source_dir", ""))
         self.theme_combo.setCurrentIndex({"system": 0, "light": 1, "dark": 2}.get(self.settings.get('theme', 'system'), 0))
+        # Load SSH settings
+        self.ssh_enabled_check.setChecked(self.settings.get("ssh_enabled", False))
+        self.ssh_host_edit.setText(self.settings.get("ssh_host", ""))
+        self.ssh_port_spin.setValue(self.settings.get("ssh_port", 22))
+        self.ssh_user_edit.setText(self.settings.get("ssh_user", ""))
+        self.ssh_pass_edit.setText(self.settings.get("ssh_pass", ""))
+        self.ssh_key_path_edit.setText(self.settings.get("ssh_key_path", ""))
         self._update_save_button_state("app", False)
         self._connect_app_setting_signals()
 
@@ -925,12 +1031,21 @@ class MainWindow(QMainWindow):
         self._connect_backup_setting_signals()
 
     def collect_and_save_settings(self):
+        # App Settings
         self.settings['theme'] = ["system", "light", "dark"][self.theme_combo.currentIndex()]
         self.settings['start_with_windows'] = self.setting_start_with_windows.isChecked()
         self.settings['start_minimized'] = self.setting_start_minimized.isChecked()
         self.settings['immich_install_path'] = self.setting_install_path_edit.text()
         self.settings['source_dir'] = self.setting_source_dir_edit.text()
+        # SSH Settings
+        self.settings['ssh_enabled'] = self.ssh_enabled_check.isChecked()
+        self.settings['ssh_host'] = self.ssh_host_edit.text()
+        self.settings['ssh_port'] = self.ssh_port_spin.value()
+        self.settings['ssh_user'] = self.ssh_user_edit.text()
+        self.settings['ssh_pass'] = self.ssh_pass_edit.text()
+        self.settings['ssh_key_path'] = self.ssh_key_path_edit.text()
         
+        # Backup Settings
         self.settings['retention_days'] = self.setting_retention_days.value()
         self.settings['container_name'] = self.setting_container_name.text()
         self.settings['db_user'] = self.setting_db_user.text()
@@ -975,25 +1090,25 @@ class MainWindow(QMainWindow):
         self.schedule_dom_spin.valueChanged.connect(self.mark_backup_settings_dirty)
 
     def _disconnect_backup_setting_signals(self):
-        try: self.backup_dir_edit.textChanged.disconnect(self.mark_backup_settings_dirty)
+        try: self.backup_dir_edit.textChanged.disconnect()
         except (TypeError, RuntimeError): pass
-        try: self.setting_retention_days.valueChanged.disconnect(self.mark_backup_settings_dirty)
+        try: self.setting_retention_days.valueChanged.disconnect()
         except (TypeError, RuntimeError): pass
-        try: self.setting_container_name.textChanged.disconnect(self.mark_backup_settings_dirty)
+        try: self.setting_container_name.textChanged.disconnect()
         except (TypeError, RuntimeError): pass
-        try: self.setting_db_user.textChanged.disconnect(self.mark_backup_settings_dirty)
+        try: self.setting_db_user.textChanged.disconnect()
         except (TypeError, RuntimeError): pass
-        try: self.schedule_enabled_check.toggled.disconnect(self.mark_backup_settings_dirty)
+        try: self.schedule_enabled_check.toggled.disconnect()
         except (TypeError, RuntimeError): pass
-        try: self.schedule_time_edit.timeChanged.disconnect(self.mark_backup_settings_dirty)
+        try: self.schedule_time_edit.timeChanged.disconnect()
         except (TypeError, RuntimeError): pass
-        try: self.schedule_freq_combo.currentIndexChanged.disconnect(self.mark_backup_settings_dirty)
+        try: self.schedule_freq_combo.currentIndexChanged.disconnect()
         except (TypeError, RuntimeError): pass
-        try: self.schedule_type_combo.currentIndexChanged.disconnect(self.mark_backup_settings_dirty)
+        try: self.schedule_type_combo.currentIndexChanged.disconnect()
         except (TypeError, RuntimeError): pass
-        try: self.schedule_day_combo.currentIndexChanged.disconnect(self.mark_backup_settings_dirty)
+        try: self.schedule_day_combo.currentIndexChanged.disconnect()
         except (TypeError, RuntimeError): pass
-        try: self.schedule_dom_spin.valueChanged.disconnect(self.mark_backup_settings_dirty)
+        try: self.schedule_dom_spin.valueChanged.disconnect()
         except (TypeError, RuntimeError): pass
 
     def _connect_app_setting_signals(self):
@@ -1002,17 +1117,37 @@ class MainWindow(QMainWindow):
         self.setting_start_minimized.toggled.connect(self.mark_app_settings_dirty)
         self.setting_install_path_edit.textChanged.connect(self.mark_app_settings_dirty)
         self.setting_source_dir_edit.textChanged.connect(self.mark_app_settings_dirty)
-        
+        # SSH signals
+        self.ssh_enabled_check.toggled.connect(self.mark_app_settings_dirty)
+        self.ssh_host_edit.textChanged.connect(self.mark_app_settings_dirty)
+        self.ssh_port_spin.valueChanged.connect(self.mark_app_settings_dirty)
+        self.ssh_user_edit.textChanged.connect(self.mark_app_settings_dirty)
+        self.ssh_pass_edit.textChanged.connect(self.mark_app_settings_dirty)
+        self.ssh_key_path_edit.textChanged.connect(self.mark_app_settings_dirty)
+
     def _disconnect_app_setting_signals(self):
-        try: self.theme_combo.currentIndexChanged.disconnect(self.mark_app_settings_dirty)
+        try: self.theme_combo.currentIndexChanged.disconnect()
         except (TypeError, RuntimeError): pass
-        try: self.setting_start_with_windows.toggled.disconnect(self.mark_app_settings_dirty)
+        try: self.setting_start_with_windows.toggled.disconnect()
         except (TypeError, RuntimeError): pass
-        try: self.setting_start_minimized.toggled.disconnect(self.mark_app_settings_dirty)
+        try: self.setting_start_minimized.toggled.disconnect()
         except (TypeError, RuntimeError): pass
-        try: self.setting_install_path_edit.textChanged.disconnect(self.mark_app_settings_dirty)
+        try: self.setting_install_path_edit.textChanged.disconnect()
         except (TypeError, RuntimeError): pass
-        try: self.setting_source_dir_edit.textChanged.disconnect(self.mark_app_settings_dirty)
+        try: self.setting_source_dir_edit.textChanged.disconnect()
+        except (TypeError, RuntimeError): pass
+        # SSH signals
+        try: self.ssh_enabled_check.toggled.disconnect()
+        except (TypeError, RuntimeError): pass
+        try: self.ssh_host_edit.textChanged.disconnect()
+        except (TypeError, RuntimeError): pass
+        try: self.ssh_port_spin.valueChanged.disconnect()
+        except (TypeError, RuntimeError): pass
+        try: self.ssh_user_edit.textChanged.disconnect()
+        except (TypeError, RuntimeError): pass
+        try: self.ssh_pass_edit.textChanged.disconnect()
+        except (TypeError, RuntimeError): pass
+        try: self.ssh_key_path_edit.textChanged.disconnect()
         except (TypeError, RuntimeError): pass
 
     def mark_backup_settings_dirty(self):
@@ -1101,11 +1236,13 @@ class MainWindow(QMainWindow):
             self.save_settings()
 
     def refresh_home_tab(self):
-        self.docker_status_requested.emit(self.settings.get("immich_install_path", ""))
+        self.docker_status_requested.emit(self.settings)
 
     def update_home_dashboard(self, payload):
         self.current_immich_version = payload.get("version", "Unknown")
         status_dict = payload.get("containers", {})
+        self.worker.is_immich_server_running = status_dict.get('immich_server', 'unknown') == 'running'
+
 
         if self.latest_version and self.current_immich_version != "Unknown":
             self.version_status_label.setVisible(True)
@@ -1201,6 +1338,12 @@ class MainWindow(QMainWindow):
         self.history_list.clear()
         backup_dir = self.settings.get("backup_dir", "")
         if not backup_dir: return
+
+        # History is only available for local backups currently
+        if self.settings.get("ssh_enabled", False):
+            self.history_list.addItem("Backup history not available for remote servers.")
+            return
+
         log_file = Path(backup_dir) / "backup_log.json"
         if log_file.exists():
             try:
@@ -1365,4 +1508,3 @@ Terminal=false
             QSystemTrayIcon.Information,
             2000
         )
-

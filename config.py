@@ -3,7 +3,7 @@ from pathlib import Path
 
 # --- CONFIGURATION ---
 APP_NAME = "ImmichSafe"
-APP_VERSION = "3.1.0"
+APP_VERSION = "3.2.0"
 CONFIG_FILE = Path.home() / f".{APP_NAME.lower()}_config.json"
 
 # --- Platform Detection ---
